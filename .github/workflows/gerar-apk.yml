@@ -1,1 +1,57 @@
+name: Gerar APK do Cifrario
 
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descompactar o projeto
+        run: |
+          ZIP=$(ls *.zip | head -n 1)
+          echo "Usando $ZIP"
+          unzip -q -o "$ZIP" -d projeto
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Preparar o app
+        working-directory: projeto
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Gerar APK
+        working-directory: projeto/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../../Cifrario.apk
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cifrario-apk
+          path: Cifrario.apk
+
+      - name: Publicar para download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Cifrário versão ${{ github.run_number }}
+          body: Baixe o arquivo Cifrario.apk abaixo e instale no Android.
+          files: Cifrario.apk
+          make_latest: true
